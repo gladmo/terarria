@@ -1,0 +1,18 @@
+[package]
+name = "terarria"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "terarria"
+path = "src/main.rs"
+
+[dependencies]
+bevy = { version = "0.18.1", features = ["dynamic_linking"] }
+rand = "0.9"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
