@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use crate::assets::GameTextures;
 use crate::world::{world_to_tile, GameWorld, TileType};
 use crate::{TILE_SIZE, WORLD_HEIGHT, WORLD_WIDTH};
 
@@ -64,12 +65,16 @@ impl Plugin for PlayerPlugin {
 // Startup
 // ---------------------------------------------------------------------------
 
-fn spawn_player(mut commands: Commands, world: Res<GameWorld>) {
+fn spawn_player(mut commands: Commands, world: Res<GameWorld>, textures: Res<GameTextures>) {
     let spawn = world.spawn_position();
     commands.spawn((
         Player,
         Velocity::default(),
-        Sprite::from_color(Color::srgb(0.85, 0.72, 0.50), Vec2::new(14.0, 28.0)),
+        Sprite {
+            image: textures.player.clone(),
+            custom_size: Some(Vec2::new(14.0, 28.0)),
+            ..default()
+        },
         Transform::from_translation(spawn.extend(10.0)),
     ));
 }

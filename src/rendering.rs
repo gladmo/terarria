@@ -1,8 +1,9 @@
 use bevy::prelude::*;
 use std::collections::HashMap;
 
+use crate::assets::GameTextures;
 use crate::camera::MainCamera;
-use crate::world::{tile_to_world, GameWorld};
+use crate::world::{tile_to_world, GameWorld, TileType};
 use crate::{TILE_SIZE, WORLD_HEIGHT, WORLD_WIDTH};
 /// Tracks all currently-spawned tile entities by their tile coordinates.
 #[derive(Resource, Default)]
@@ -10,6 +11,9 @@ pub struct RenderedTiles(pub HashMap<(i32, i32), Entity>);
 
 /// Render buffer (extra tiles rendered beyond the visible viewport).
 const BUFFER: i32 = 4;
+
+/// Fallback tint shown for any tile type that has no texture loaded yet.
+const MISSING_TEXTURE_COLOR: Color = Color::srgb(1.0, 0.0, 1.0);
 
 pub struct RenderingPlugin;
 
@@ -30,6 +34,7 @@ fn update_tile_rendering(
     mut world: ResMut<GameWorld>,
     camera_query: Query<&GlobalTransform, With<MainCamera>>,
     windows: Query<&Window>,
+    textures: Res<GameTextures>,
 ) {
     let Ok(camera_transform) = camera_query.single() else {
         return;
@@ -75,22 +80,36 @@ fn update_tile_rendering(
         }
     }
 
-    // Spawn tiles that are newly in view
+    // Spawn tiles that are newly in view.
+    // The `rendered` map is the authoritative list of spawned entities; tiles already
+    // in it are skipped, so texture lookup only happens when a tile first enters view
+    // or is re-spawned after being mined/placed (via the dirty-tile path above).
     for ty in min_y..=max_y {
         for tx in min_x..=max_x {
             if rendered.0.contains_key(&(tx, ty)) {
                 continue;
             }
             let tile = world.get(tx, ty);
-            let Some(color) = tile.color() else {
+            if tile == TileType::Air {
                 continue; // Air — no sprite needed
-            };
+            }
             let pos = tile_to_world(tx, ty);
+            let sprite = if let Some(handle) = textures.tiles.get(&tile) {
+                // Use the loaded texture for this tile type
+                Sprite {
+                    image: handle.clone(),
+                    custom_size: Some(Vec2::splat(TILE_SIZE)),
+                    ..default()
+                }
+            } else {
+                // Fallback: solid tint (should not occur for known tile types)
+                Sprite::from_color(
+                    tile.color().unwrap_or(MISSING_TEXTURE_COLOR),
+                    Vec2::splat(TILE_SIZE - 0.5),
+                )
+            };
             let entity = commands
-                .spawn((
-                    Sprite::from_color(color, Vec2::splat(TILE_SIZE - 0.5)),
-                    Transform::from_translation(pos.extend(1.0)),
-                ))
+                .spawn((sprite, Transform::from_translation(pos.extend(1.0))))
                 .id();
             rendered.0.insert((tx, ty), entity);
         }

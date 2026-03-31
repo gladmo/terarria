@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
 
+mod assets;
 mod camera;
 mod player;
 mod rendering;
@@ -25,6 +26,7 @@ fn main() {
         )
         .insert_resource(ClearColor(Color::srgb(0.38, 0.62, 0.88)))
         .add_plugins(world::WorldPlugin)
+        .add_plugins(assets::AssetsPlugin)
         .add_plugins(player::PlayerPlugin)
         .add_plugins(camera::CameraPlugin)
         .add_plugins(rendering::RenderingPlugin)
