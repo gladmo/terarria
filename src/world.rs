@@ -5,11 +5,12 @@ use std::collections::HashSet;
 use crate::{TILE_SIZE, WORLD_HEIGHT, WORLD_WIDTH};
 
 /// Types of tiles that can exist in the world.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Default)]
 pub enum TileType {
     Air,
-    Grass,
+    #[default]
     Dirt,
+    Grass,
     Stone,
     Bedrock,
     Sand,
@@ -252,16 +253,16 @@ fn generate_world(world: &mut GameWorld) {
                     }
                 }
                 // Leaves
-                let top = if surface_y >= tree_height { surface_y - tree_height } else { 0 };
+                let top = surface_y.saturating_sub(tree_height);
                 for ly in 0..4usize {
                     let lwidth: i32 = 2 - ly as i32 / 2;
                     for lx in -lwidth..=lwidth {
                         let wx = x as i32 + lx;
                         let wy = top as i32 + ly as i32 - 1;
-                        if wx >= 0 && wx < WORLD_WIDTH as i32 && wy >= 0 && wy < WORLD_HEIGHT as i32 {
-                            if world.tiles[wy as usize * WORLD_WIDTH + wx as usize] == TileType::Air {
-                                world.tiles[wy as usize * WORLD_WIDTH + wx as usize] = TileType::Leaves;
-                            }
+                        if wx >= 0 && wx < WORLD_WIDTH as i32 && wy >= 0 && wy < WORLD_HEIGHT as i32
+                            && world.tiles[wy as usize * WORLD_WIDTH + wx as usize] == TileType::Air
+                        {
+                            world.tiles[wy as usize * WORLD_WIDTH + wx as usize] = TileType::Leaves;
                         }
                     }
                 }

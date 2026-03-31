@@ -21,13 +21,22 @@ const MAX_FALL_SPEED: f32 = -800.0;
 const PLAYER_HALF_W: f32 = 7.0;
 const PLAYER_HALF_H: f32 = 14.0;
 
+/// How many seconds between mining ticks when holding LMB.
+const MINE_INTERVAL: f32 = 0.15;
+
 /// The block type currently selected for placement.
 #[derive(Resource, Default)]
 pub struct SelectedBlock(pub TileType);
 
-impl Default for TileType {
+/// Timer that controls how fast the player can mine.
+#[derive(Resource)]
+pub struct MineTimer(pub Timer);
+
+impl Default for MineTimer {
     fn default() -> Self {
-        TileType::Dirt
+        let mut t = Timer::from_seconds(MINE_INTERVAL, TimerMode::Repeating);
+        t.set_elapsed(std::time::Duration::from_secs_f32(MINE_INTERVAL)); // fire immediately on first press
+        Self(t)
     }
 }
 
@@ -36,6 +45,7 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SelectedBlock>()
+            .init_resource::<MineTimer>()
             .add_systems(Startup, spawn_player)
             .add_systems(
                 Update,
@@ -89,14 +99,13 @@ fn player_input(
     }
     vel.0.x = dx;
 
-    // Jump
-    if keyboard.just_pressed(KeyCode::Space)
+    // Jump — check all jump keys in one condition
+    if (keyboard.just_pressed(KeyCode::Space)
         || keyboard.just_pressed(KeyCode::KeyW)
-        || keyboard.just_pressed(KeyCode::ArrowUp)
+        || keyboard.just_pressed(KeyCode::ArrowUp))
+        && is_on_ground(pos, &world)
     {
-        if is_on_ground(pos, &world) {
-            vel.0.y = JUMP_SPEED;
-        }
+        vel.0.y = JUMP_SPEED;
     }
 }
 
@@ -222,6 +231,8 @@ fn is_on_ground(pos: Vec2, world: &GameWorld) -> bool {
 const REACH_TILES: f32 = 5.0;
 
 fn block_interaction(
+    time: Res<Time>,
+    mut mine_timer: ResMut<MineTimer>,
     mouse: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window>,
     camera_query: Query<(&Camera, &GlobalTransform)>,
@@ -257,21 +268,27 @@ fn block_interaction(
         return;
     }
 
-    if mouse.just_pressed(MouseButton::Left) {
-        // Mine tile
-        if world.get(tx, ty).is_solid() {
+    // Mine: hold LMB, fires every MINE_INTERVAL seconds
+    if mouse.pressed(MouseButton::Left) {
+        mine_timer.0.tick(time.delta());
+        if mine_timer.0.just_finished() && world.get(tx, ty).is_solid() {
             world.set(tx, ty, TileType::Air);
         }
-    } else if mouse.just_pressed(MouseButton::Right) {
-        // Place tile
-        if !world.get(tx, ty).is_solid() {
-            // Don't place inside the player
-            let tile_center = crate::world::tile_to_world(tx, ty);
-            let overlap_x = (tile_center.x - player_pos.x).abs() < PLAYER_HALF_W + TILE_SIZE * 0.5;
-            let overlap_y = (tile_center.y - player_pos.y).abs() < PLAYER_HALF_H + TILE_SIZE * 0.5;
-            if !(overlap_x && overlap_y) {
-                world.set(tx, ty, selected.0);
-            }
+    } else {
+        // Reset timer when LMB released so next press mines immediately
+        mine_timer.0.reset();
+        mine_timer
+            .0
+            .set_elapsed(std::time::Duration::from_secs_f32(MINE_INTERVAL));
+    }
+
+    // Place: single click RMB
+    if mouse.just_pressed(MouseButton::Right) && !world.get(tx, ty).is_solid() {
+        let tile_center = crate::world::tile_to_world(tx, ty);
+        let overlap_x = (tile_center.x - player_pos.x).abs() < PLAYER_HALF_W + TILE_SIZE * 0.5;
+        let overlap_y = (tile_center.y - player_pos.y).abs() < PLAYER_HALF_H + TILE_SIZE * 0.5;
+        if !(overlap_x && overlap_y) {
+            world.set(tx, ty, selected.0);
         }
     }
 }
@@ -305,3 +322,4 @@ fn cycle_selected_block(keyboard: Res<ButtonInput<KeyCode>>, mut selected: ResMu
         }
     }
 }
+

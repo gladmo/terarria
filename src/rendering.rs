@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use crate::camera::MainCamera;
 use crate::world::{tile_to_world, GameWorld};
 use crate::{TILE_SIZE, WORLD_HEIGHT, WORLD_WIDTH};
-
 /// Tracks all currently-spawned tile entities by their tile coordinates.
 #[derive(Resource, Default)]
 pub struct RenderedTiles(pub HashMap<(i32, i32), Entity>);
@@ -29,10 +28,10 @@ fn update_tile_rendering(
     mut commands: Commands,
     mut rendered: ResMut<RenderedTiles>,
     mut world: ResMut<GameWorld>,
-    camera_query: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+    camera_query: Query<&GlobalTransform, With<MainCamera>>,
     windows: Query<&Window>,
 ) {
-    let Ok((camera, camera_transform)) = camera_query.single() else {
+    let Ok(camera_transform) = camera_query.single() else {
         return;
     };
     let Ok(window) = windows.single() else {
@@ -43,8 +42,6 @@ fn update_tile_rendering(
     let cam_pos = camera_transform.translation().truncate();
     let half_w = window.width() * 0.5 + BUFFER as f32 * TILE_SIZE;
     let half_h = window.height() * 0.5 + BUFFER as f32 * TILE_SIZE;
-
-    let _ = camera; // suppress unused
 
     let min_x = ((cam_pos.x - half_w) / TILE_SIZE).floor() as i32;
     let max_x = ((cam_pos.x + half_w) / TILE_SIZE).ceil() as i32;
