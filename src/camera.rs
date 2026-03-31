@@ -20,6 +20,7 @@ fn spawn_camera(mut commands: Commands) {
 }
 
 fn follow_player(
+    time: Res<Time>,
     player_query: Query<&Transform, With<Player>>,
     mut camera_query: Query<&mut Transform, (With<MainCamera>, Without<Player>)>,
 ) {
@@ -33,9 +34,9 @@ fn follow_player(
     let target = player_transform.translation.truncate();
     let current = camera_transform.translation.truncate();
 
-    // Smooth camera follow
+    // Smooth camera follow using actual delta time
     let lerp_speed = 5.0;
-    let new_pos = current.lerp(target, lerp_speed * 0.016);
+    let new_pos = current.lerp(target, (lerp_speed * time.delta_secs()).min(1.0));
     camera_transform.translation.x = new_pos.x;
     camera_transform.translation.y = new_pos.y;
 }
